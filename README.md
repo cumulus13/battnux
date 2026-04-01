@@ -17,7 +17,7 @@
 
 ## Installation
 
-### From crates.io (once published)
+### From crates.io
 
 ```bash
 cargo install battnux
