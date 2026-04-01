@@ -1,0 +1,136 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: |
+            x86_64-unknown-linux-gnu
+            x86_64-unknown-linux-musl
+
+      - name: Install musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Build glibc
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Build musl
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Rename and prepare assets
+        run: |
+          mkdir -p dist
+          cp target/x86_64-unknown-linux-gnu/release/battnux dist/battnux-linux-x86_64
+          cp target/x86_64-unknown-linux-musl/release/battnux dist/battnux-linux-x86_64-musl
+          chmod +x dist/battnux-linux-x86_64 dist/battnux-linux-x86_64-musl
+          strip dist/battnux-linux-x86_64 dist/battnux-linux-x86_64-musl 2>/dev/null || true
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          files: |
+            dist/battnux-linux-x86_64
+            dist/battnux-linux-x86_64-musl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Rename and prepare assets
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/battnux.exe dist/battnux-windows-x86_64.exe
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          files: dist/battnux-windows-x86_64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: |
+            x86_64-apple-darwin
+            aarch64-apple-darwin
+
+      - name: Build Intel
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Build Apple Silicon
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Rename and prepare assets
+        run: |
+          mkdir -p dist
+          cp target/x86_64-apple-darwin/release/battnux dist/battnux-macos-x86_64
+          cp target/aarch64-apple-darwin/release/battnux dist/battnux-macos-aarch64
+          chmod +x dist/battnux-macos-x86_64 dist/battnux-macos-aarch64
+          strip dist/battnux-macos-x86_64 dist/battnux-macos-aarch64 2>/dev/null || true
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          files: |
+            dist/battnux-macos-x86_64
+            dist/battnux-macos-aarch64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
