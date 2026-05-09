@@ -50,7 +50,7 @@ impl BatterySnapshot {
         let pct = bat.state_of_charge().value * 100.0;
         let state = format!("{:?}", bat.state());
 
-        let energy_wh = bat.energy().value / 3600.0;           // Joules → Wh
+        let energy_wh = bat.energy().value / 3600.0; // Joules → Wh
         let energy_full_wh = bat.energy_full().value / 3600.0;
         let energy_full_design_wh = bat.energy_full_design().value / 3600.0;
         let health_pct = if energy_full_design_wh > 0.0 {
@@ -115,7 +115,11 @@ pub fn collect() -> Result<Vec<BatterySnapshot>> {
     let manager = Manager::new().context("Failed to initialise battery manager")?;
     let mut snapshots = Vec::new();
 
-    for (idx, result) in manager.batteries().context("Failed to enumerate batteries")?.enumerate() {
+    for (idx, result) in manager
+        .batteries()
+        .context("Failed to enumerate batteries")?
+        .enumerate()
+    {
         match result {
             Ok(bat) => {
                 snapshots.push(BatterySnapshot::from_battery(idx, &bat));

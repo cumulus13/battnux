@@ -10,8 +10,7 @@ use std::{
 
 /// Returns the path to the battnux data directory, creating it if needed.
 fn data_dir() -> Result<PathBuf> {
-    let base = data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"));
+    let base = data_local_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
     let dir = base.join("battnux");
     fs::create_dir_all(&dir)
         .with_context(|| format!("Cannot create data dir: {}", dir.display()))?;
@@ -33,13 +32,15 @@ pub fn persist_snapshot(batteries: &[BatterySnapshot]) -> Result<()> {
         .with_context(|| format!("Cannot open log file: {}", path.display()))?;
 
     for bat in batteries {
-        let line = serde_json::to_string(bat)
-            .context("Failed to serialise battery snapshot")?;
-        writeln!(file, "{}", line)
-            .context("Failed to write to log file")?;
+        let line = serde_json::to_string(bat).context("Failed to serialise battery snapshot")?;
+        writeln!(file, "{}", line).context("Failed to write to log file")?;
     }
 
-    debug!("Persisted {} snapshots to {}", batteries.len(), path.display());
+    debug!(
+        "Persisted {} snapshots to {}",
+        batteries.len(),
+        path.display()
+    );
     info!("Log: {}", path.display());
     Ok(())
 }
@@ -52,8 +53,8 @@ pub fn load_history(limit: usize) -> Result<Vec<BatterySnapshot>> {
         return Ok(vec![]);
     }
 
-    let file = fs::File::open(&path)
-        .with_context(|| format!("Cannot read log: {}", path.display()))?;
+    let file =
+        fs::File::open(&path).with_context(|| format!("Cannot read log: {}", path.display()))?;
     let reader = BufReader::new(file);
 
     let mut all: Vec<BatterySnapshot> = Vec::new();

@@ -1,0 +1,40 @@
+# battnux — example configuration file
+# Copy to: ~/.config/battnux/config.toml
+# All keys are optional. Defaults are shown.
+# https://github.com/cumulus13/battnux
+
+# ── Threshold values ──────────────────────────────────────────────────────────
+# When these are crossed, warnings are printed, Growl notifications are sent,
+# and audio alerts are played (if configured).
+[thresholds]
+low         = 20.0   # % — warn when charge drops at or below this (discharging only)
+high        = 95.0   # % — warn when charge reaches this (charging only)
+temperature = 55.0   # °C — warn when battery temp exceeds this
+health      = 50.0   # % — warn when battery health (capacity wear) drops below this
+
+# ── Growl / GNTP notifications ────────────────────────────────────────────────
+[growl]
+enabled      = true         # set to false to disable all Growl notifications
+host         = "localhost"  # Growl server host
+port         = 23053        # Growl server port
+# password   = "secret"    # optional Growl password
+icon         = "battnux.png"  # icon sent with notifications (path or filename beside binary)
+sticky       = false        # sticky = notification stays until dismissed
+cooldown_secs = 60          # minimum seconds between repeat notifications of the same kind
+
+# ── Audio alerts ──────────────────────────────────────────────────────────────
+[audio]
+enabled    = true           # set to false to disable audio alerts
+# alert_file = "/path/to/alert.wav"  # wav, mp3, or ogg file to play on threshold breach
+volume     = 1.0            # 0.0 (silent) to 1.0 (full)
+
+# ── Monitor mode ──────────────────────────────────────────────────────────────
+[monitor]
+interval_secs = 5    # refresh interval in seconds
+verbose       = false  # show extended fields (voltage, temp, etc.) in monitor mode
+
+# ── Web dashboard ─────────────────────────────────────────────────────────────
+[web]
+enabled = false           # set to true or use --web flag
+host    = "127.0.0.1"    # bind address (use "0.0.0.0" to expose on LAN)
+port    = 7878            # http port

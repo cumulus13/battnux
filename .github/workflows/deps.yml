@@ -1,0 +1,31 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Monday 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-edit
+        run: cargo install cargo-edit
+      - name: Update dependencies
+        run: cargo upgrade --incompatible allow
+      - name: Install system libs
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+      - name: Build check after update
+        run: cargo build
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update dependencies"
+          title: "chore: weekly dependency update"
+          body: "Automated dependency updates via cargo upgrade."
+          branch: dep-updates/weekly
+          delete-branch: true

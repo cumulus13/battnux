@@ -1,11 +1,14 @@
+//! Colored text output renderer.
+//! `render()` writes to stdout (one-shot mode).
+//! `render_battery_to_lines()` returns Vec<String> for monitor mode frame building.
+
 use crate::battery_info::BatterySnapshot;
 use anyhow::Result;
 use colored::Colorize;
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ─── Color helpers ───────────────────────────────────────────────────────────
 
-/// Return a color-coded string for battery percentage.
-fn pct_colored(pct: f32) -> colored::ColoredString {
+pub fn pct_colored(pct: f32) -> colored::ColoredString {
     let s = format!("{:.1}%", pct);
     if pct >= 80.0 {
         s.bright_green()
@@ -18,8 +21,7 @@ fn pct_colored(pct: f32) -> colored::ColoredString {
     }
 }
 
-/// Return a color-coded string for battery health.
-fn health_colored(pct: f32) -> colored::ColoredString {
+pub fn health_colored(pct: f32) -> colored::ColoredString {
     let s = format!("{:.1}%", pct);
     if pct >= 85.0 {
         s.bright_green()
@@ -30,8 +32,7 @@ fn health_colored(pct: f32) -> colored::ColoredString {
     }
 }
 
-/// Return a color-coded state label.
-fn state_colored(state: &str) -> colored::ColoredString {
+pub fn state_colored(state: &str) -> colored::ColoredString {
     match state {
         "Charging" => state.bright_cyan().bold(),
         "Discharging" => state.bright_yellow(),
@@ -41,16 +42,13 @@ fn state_colored(state: &str) -> colored::ColoredString {
     }
 }
 
-/// Build a Unicode bar-chart gauge (e.g. ████████░░ 80%).
-fn bar_gauge(pct: f32, width: usize) -> String {
+pub fn bar_gauge(pct: f32, width: usize) -> String {
     let filled = ((pct / 100.0) * width as f32).round() as usize;
     let empty = width.saturating_sub(filled);
-    let bar: String = "█".repeat(filled) + &"░".repeat(empty);
-    bar
+    "█".repeat(filled) + &"░".repeat(empty)
 }
 
-/// Format minutes as a human-readable duration.
-fn fmt_duration(mins: f32) -> String {
+pub fn fmt_duration(mins: f32) -> String {
     let total = mins as u64;
     let h = total / 60;
     let m = total % 60;
@@ -61,47 +59,53 @@ fn fmt_duration(mins: f32) -> String {
     }
 }
 
-// ─── divider helper ─────────────────────────────────────────────────────────
-
 fn section(label: &str) -> String {
-    let line = "─".repeat(50);
-    format!("{} {}", label.bold().bright_white(), line.dimmed())
+    format!(
+        "{} {}",
+        label.bold().bright_white(),
+        "─".repeat(46).dimmed()
+    )
 }
 
-// ─── public render ──────────────────────────────────────────────────────────
+// ─── One-shot render (writes directly to stdout) ──────────────────────────────
 
 pub fn render(batteries: &[BatterySnapshot], verbose: bool, json: bool) -> Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(batteries)?);
         return Ok(());
     }
-
     println!();
     println!(
         "  {} {}",
         "battnux".bright_cyan().bold(),
         "— Battery Monitor".dimmed()
     );
-    println!("  {}", "─".repeat(48).dimmed());
+    println!("  {}", "─".repeat(50).dimmed());
 
     for bat in batteries {
-        render_battery(bat, verbose);
+        for line in render_battery_to_lines(bat, verbose) {
+            println!("{}", line);
+        }
         println!();
     }
-
     Ok(())
 }
 
-fn render_battery(b: &BatterySnapshot, verbose: bool) {
+// ─── Render a battery to a Vec of colored strings ────────────────────────────
+// Used both by `render()` and by monitor mode frame builder.
+
+pub fn render_battery_to_lines(b: &BatterySnapshot, verbose: bool) -> Vec<String> {
+    let mut lines = Vec::new();
+
     let title = format!(
         "Battery #{} — {}",
         b.index,
         b.model.as_deref().unwrap_or("Unknown Model")
     );
-    println!("  {}", section(&title));
+    lines.push(format!("  {}", section(&title)));
 
     // Gauge bar
-    let gauge = bar_gauge(b.percentage, 30);
+    let gauge = bar_gauge(b.percentage, 28);
     let gauge_colored = if b.percentage >= 80.0 {
         gauge.bright_green()
     } else if b.percentage >= 40.0 {
@@ -109,48 +113,47 @@ fn render_battery(b: &BatterySnapshot, verbose: bool) {
     } else {
         gauge.bright_red()
     };
-    println!(
+    lines.push(format!(
         "  {:>16}  {} {}",
         "Charge:".bold(),
         gauge_colored,
         pct_colored(b.percentage)
-    );
+    ));
 
-    println!(
+    lines.push(format!(
         "  {:>16}  {}",
         "State:".bold(),
         state_colored(&b.state)
-    );
+    ));
 
-    println!(
+    lines.push(format!(
         "  {:>16}  {}",
         "Health:".bold(),
         health_colored(b.health_pct)
-    );
+    ));
 
-    // Time remaining
     if let Some(mins) = b.time_to_empty_min {
-        println!(
+        lines.push(format!(
             "  {:>16}  {}",
             "Time Left:".bold(),
             fmt_duration(mins).bright_yellow()
-        );
+        ));
     }
     if let Some(mins) = b.time_to_full_min {
-        println!(
+        lines.push(format!(
             "  {:>16}  {}",
             "Time to Full:".bold(),
             fmt_duration(mins).bright_cyan()
-        );
+        ));
     }
 
-    println!(
-        "  {:>16}  {:.2} Wh  /  {:.2} Wh  (design: {:.2} Wh)",
+    lines.push(format!(
+        "  {:>16}  {:.2} Wh / {:.2} Wh  (design: {:.2} Wh)",
         "Energy:".bold(),
         b.energy_wh,
         b.energy_full_wh,
         b.energy_full_design_wh
-    );
+    ));
 
     let rate_str = format!("{:.2} W", b.power_rate_w.abs());
     let rate_colored = if b.state == "Charging" {
@@ -158,47 +161,55 @@ fn render_battery(b: &BatterySnapshot, verbose: bool) {
     } else {
         rate_str.bright_yellow()
     };
-    println!("  {:>16}  {}", "Power Rate:".bold(), rate_colored);
+    lines.push(format!("  {:>16}  {}", "Power Rate:".bold(), rate_colored));
 
-    println!(
+    lines.push(format!(
         "  {:>16}  {}",
         "Technology:".bold(),
         b.technology.bright_white()
-    );
+    ));
 
     if let Some(cycles) = b.cycle_count {
-        println!("  {:>16}  {}", "Cycle Count:".bold(), cycles.to_string().bright_white());
+        lines.push(format!(
+            "  {:>16}  {}",
+            "Cycle Count:".bold(),
+            cycles.to_string().bright_white()
+        ));
     }
 
-    // Verbose extras
     if verbose {
-        println!();
-        println!("  {}", section("  Extended Info"));
-
-        println!(
-            "  {:>16}  {:.4} V",
-            "Voltage:".bold(),
-            b.voltage_v
-        );
+        lines.push(String::new());
+        lines.push(format!("  {}", section("  Extended Info")));
+        lines.push(format!("  {:>16}  {:.4} V", "Voltage:".bold(), b.voltage_v));
 
         if let Some(temp) = b.temperature_c {
-            let temp_str = format!("{:.1} °C", temp);
-            let temp_colored = if temp > 50.0 {
-                temp_str.bright_red()
+            let ts = format!("{:.1} °C", temp);
+            let tc = if temp > 50.0 {
+                ts.bright_red()
             } else if temp > 40.0 {
-                temp_str.yellow()
+                ts.yellow()
             } else {
-                temp_str.bright_green()
+                ts.bright_green()
             };
-            println!("  {:>16}  {}", "Temperature:".bold(), temp_colored);
+            lines.push(format!("  {:>16}  {}", "Temperature:".bold(), tc));
         }
 
         if let Some(ref vendor) = b.vendor {
-            println!("  {:>16}  {}", "Vendor:".bold(), vendor.bright_white());
+            lines.push(format!(
+                "  {:>16}  {}",
+                "Vendor:".bold(),
+                vendor.bright_white()
+            ));
         }
         if let Some(ref sn) = b.serial_number {
-            println!("  {:>16}  {}", "Serial No:".bold(), sn.dimmed());
+            lines.push(format!("  {:>16}  {}", "Serial No:".bold(), sn.dimmed()));
         }
-        println!("  {:>16}  {}", "Snapshot:".bold(), b.timestamp.dimmed());
+        lines.push(format!(
+            "  {:>16}  {}",
+            "Snapshot:".bold(),
+            b.timestamp.dimmed()
+        ));
     }
+
+    lines
 }
