@@ -197,26 +197,32 @@ fn evaluate_and_dispatch(
     audio: Option<&AudioHandle>,
 ) -> Vec<String> {
     let mut warnings = Vec::new();
+    let mut active_kinds: HashSet<ThresholdKind> = HashSet::new();
 
     for bat in batteries {
         let events = threshold::evaluate(bat, &cfg.thresholds);
         for ev in events {
             warnings.push(ev.message.clone());
+            active_kinds.insert(ev.kind.clone());
 
-            // Only fire once per kind per session (notifier/audio have their own cooldown too)
+            // Only dispatch on the leading edge — when a kind becomes active
+            // for the first time (or re-enters after having cleared).
+            // The notifier/audio threads each apply their own cooldown on top.
             if !fired_kinds.contains(&ev.kind) {
+                if let Some(n) = notifier {
+                    n.send(ev.clone());
+                }
+                if let Some(a) = audio {
+                    a.send(ev.clone());
+                }
                 fired_kinds.insert(ev.kind.clone());
-            }
-
-            // Always dispatch — notifier/audio threads apply their own cooldowns
-            if let Some(n) = notifier {
-                n.send(ev.clone());
-            }
-            if let Some(a) = audio {
-                a.send(ev.clone());
             }
         }
     }
+
+    // Clear kinds that are no longer active so they can re-trigger if they
+    // return (e.g. battery drains below threshold again after charging).
+    fired_kinds.retain(|k| active_kinds.contains(k));
 
     warnings
 }

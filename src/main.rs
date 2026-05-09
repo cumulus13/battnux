@@ -26,8 +26,9 @@ async fn main() -> Result<()> {
     logger::init(cli.debug, cli.verbose)?;
     debug!("battnux v{} starting", env!("CARGO_PKG_VERSION"));
 
-    // Load config (creates default if missing)
-    let mut cfg = config::load()?;
+    // Load config — honour --config flag, then search beside binary, then platform dir
+    let explicit_config = cli.config.as_deref();
+    let mut cfg = config::load(explicit_config)?;
 
     // CLI flags override config values
     if let Some(interval) = cli.interval {
@@ -40,9 +41,9 @@ async fn main() -> Result<()> {
         cfg.web.enabled = true;
     }
 
-    // --show-config: print and exit
+    // --show-config: print resolved path and contents, then exit
     if cli.show_config {
-        return config::show();
+        return config::show(explicit_config);
     }
 
     // ── Spawn background threads ──────────────────────────────────────────────
@@ -129,8 +130,16 @@ async fn main() -> Result<()> {
         display::render(&batteries, cli.verbose, cli.json)?;
     }
 
-    // Give notifier/audio threads a moment to dispatch before exit
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    // Drop handles to close the mpsc channels — this signals the background
+    // threads to finish their current work and exit cleanly.
+    // We then wait long enough for a TCP connect + GNTP round-trip to Growl
+    // (default connect timeout on most systems is ~5s; we wait up to 6s).
+    let has_notifications = notifier.is_some() || audio.is_some();
+    drop(notifier);
+    drop(audio);
+    if has_notifications {
+        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+    }
 
     Ok(())
 }

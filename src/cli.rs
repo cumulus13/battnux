@@ -1,9 +1,6 @@
 use clap::Parser;
 
 /// battnux — robust battery monitor for Linux (and cross-platform)
-///
-/// Displays detailed battery information with optional terminal statistics graphs.
-/// Historical snapshots are automatically logged for trend analysis.
 #[derive(Parser, Debug)]
 #[command(
     name = "battnux",
@@ -15,16 +12,17 @@ use clap::Parser;
                   plays audio alerts, and optionally hosts a live web dashboard.\n\n\
                   Homepage: https://github.com/cumulus13/battnux",
     after_help = "EXAMPLES:\n\
-                  battnux                   # One-shot battery info\n\
-                  battnux --monitor         # Real-time refresh (default 5s)\n\
-                  battnux --monitor --interval 10  # Custom interval\n\
-                  battnux --stats           # Historical graph\n\
-                  battnux --web             # Enable web dashboard\n\
-                  battnux --monitor --web   # Monitor + web dashboard\n\
-                  battnux --verbose         # Extra fields\n\
-                  battnux --json            # JSON output\n\
-                  battnux --show-config     # Print config file path & contents\n\
-                  RUST_LOG=debug battnux    # Override log level"
+                  battnux                           # One-shot battery info\n\
+                  battnux --monitor                 # Real-time refresh (default 5s)\n\
+                  battnux --monitor --interval 10   # Custom interval\n\
+                  battnux --config c:\\tools\\exe\\config.toml  # Use specific config file\n\
+                  battnux --stats                   # Historical graph\n\
+                  battnux --web                     # Enable web dashboard\n\
+                  battnux --monitor --web           # Monitor + web dashboard\n\
+                  battnux --verbose                 # Extra fields\n\
+                  battnux --json                    # JSON output\n\
+                  battnux --show-config             # Print config file path & contents\n\
+                  RUST_LOG=debug battnux            # Override log level"
 )]
 pub struct Cli {
     /// Real-time monitor mode — refresh every interval seconds
@@ -52,7 +50,7 @@ pub struct Cli {
     )]
     pub verbose: bool,
 
-    /// Enable debug logging to stderr (implies verbose)
+    /// Enable debug logging to stderr
     #[arg(
         short = 'd',
         long = "debug",
@@ -85,9 +83,18 @@ pub struct Cli {
         short = 'n',
         long = "history",
         default_value = "60",
-        help = "Number of historical snapshots to display in --stats"
+        help = "Number of historical snapshots in --stats"
     )]
     pub history_limit: usize,
+
+    /// Path to a specific config file to use (overrides all automatic search locations)
+    #[arg(
+        short = 'c',
+        long = "config",
+        value_name = "PATH",
+        help = "Path to config file [default: search beside binary, then platform config dir]"
+    )]
+    pub config: Option<std::path::PathBuf>,
 
     /// Print the config file path and current contents, then exit
     #[arg(long = "show-config", help = "Show config file location and contents")]

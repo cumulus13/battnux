@@ -1,6 +1,6 @@
 [package]
 name = "battnux"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 authors = ["Hadi Cahyadi <cumulus13@gmail.com>"]
 description = "Robust terminal battery monitor with monitor mode, statistics, Growl notifications, audio alerts, and web dashboard"
