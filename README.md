@@ -6,7 +6,7 @@
 Author  : Hadi Cahyadi <cumulus13@gmail.com>
 Repo    : https://github.com/cumulus13/battnux
 License : MIT
-Version : 1.0.7
+Version : 1.0.10
 ```
 
 [![CI](https://github.com/cumulus13/battnux/actions/workflows/ci.yml/badge.svg)](https://github.com/cumulus13/battnux/actions/workflows/ci.yml)
