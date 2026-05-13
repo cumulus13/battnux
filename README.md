@@ -15,6 +15,11 @@ Version : 1.0.7
 
 ---
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/cumulus13/battnux/master/battnux.png" alt="Logo" width="320">
+</p>
+
+
 ## Features
 
 | Feature | Details |
